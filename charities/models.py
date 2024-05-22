@@ -1,5 +1,5 @@
 from django.db import models
-
+from django.db.models import Q
 from accounts.models import User
 
 
@@ -17,6 +17,38 @@ class Charity(models.Model):
     reg_number = models.CharField(max_length=10)
 
 
+class TaskManager(models.Manager):
+    def related_tasks_to_charity(self, user):
+        return (
+            super()
+            .get_queryset()
+            .filter(charity__isnull=False)
+            .filter(charity__user=user)
+        )
+
+    def related_tasks_to_benefactor(self, user):
+        return (
+            super()
+            .get_queryset()
+            .filter(assigned_benefactor__isnull=False)
+            .filter(assigned_benefactor__user=user)
+        )
+
+    def all_related_tasks_to_user(self, user):
+        return (
+            super()
+            .get_queryset()
+            .filter(
+                Q(Q(charity__user=user) & Q(charity__isnull=False))
+                | Q(
+                    Q(assigned_benefactor__user=user)
+                    & Q(assigned_benefactor__isnull=False)
+                )
+                | Q(state="P")
+            )
+        )
+
+
 class Task(models.Model):
     GENEDER_CHOICES = (("M", "Male"), ("F", "Female"))
     PENDING = "P"
@@ -30,7 +62,7 @@ class Task(models.Model):
     assigned_benefactor = models.ForeignKey(
         Benefactor, on_delete=models.SET_NULL, null=True
     )
-    charity = models.ForeignKey(Charity, on_delete=models.SET_NULL, null=True),
+    charity = models.ForeignKey(Charity, on_delete=models.SET_NULL, null=True)
     age_limit_from = models.IntegerField(blank=True, null=True)
     age_limit_to = models.IntegerField(blank=True, null=True)
     date = models.DateField(blank=True, null=True)
@@ -40,3 +72,4 @@ class Task(models.Model):
     )
     state = models.CharField(max_length=1, choices=STATE_CHOICES, default=PENDING)
     title = models.CharField(max_length=60)
+    objects = TaskManager()
