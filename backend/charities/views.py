@@ -91,7 +91,6 @@ class Tasks(generics.ListCreateAPIView):
 
 
 class TaskRequest(APIView):
-    serializer_class = TaskSerializer
     permission_classes = [
         IsBenefactor,
     ]
@@ -108,7 +107,30 @@ class TaskRequest(APIView):
 
 
 class TaskResponse(APIView):
-    pass
+    permission_classes = [
+        IsCharityOwner,
+    ]
+
+    def post(self, request, task_id):
+        task = get_object_or_404(Task, id=task_id)
+        response_task = request.POST.get('response')
+        
+        if response_task not in ['A', 'R']:
+            return Response(
+                status=status.HTTP_400_BAD_REQUEST,
+                data={'detail': 'Required field ("A" for accepted / "R" for rejected)'},
+            )
+        if task.state != Task.TaskStatus.WAITING:
+            return Response(
+                status=status.HTTP_404_NOT_FOUND,
+                data={'detail': 'This task is not waiting.'},
+            )
+            
+        task.response_to_benefactor_request(response_task)
+        return Response(
+                status=status.HTTP_200_OK,
+                data={'detail': 'Response sent.'},
+            ) 
 
 
 class DoneTask(APIView):
